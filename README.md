@@ -67,10 +67,8 @@ I discovered this $100 bounty on CrackedDevs.com, which serves as a unique job a
 
 ## 🎨 Architecture Diagram
 
-<<<<<<< HEAD
-=======
 ![believe_screener architecture](https://github.com/user-attachments/assets/e17b2837-1b26-4e41-b815-5be5c1f8c55b)
->>>>>>> bb9b318648ab5ee3cfcfbecedee428653e04bbf3
+
 
 
 ## 🛠 Tech Stack
