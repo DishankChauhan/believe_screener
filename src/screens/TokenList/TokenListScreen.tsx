@@ -111,9 +111,9 @@ const mockTokens: Token[] = [
 ];
 
 const SORT_OPTIONS = [
-  { key: 'marketCap', label: 'Market Cap', icon: 'trending-up' },
-  { key: 'volume24h', label: '24h Volume', icon: 'bar-chart' },
-  { key: 'change24h', label: '24h Change', icon: 'timeline' },
+  { key: 'marketCap', label: 'Market Cap', icon: 'arrow-upward' },
+  { key: 'volume24h', label: '24h Volume', icon: 'assessment' },
+  { key: 'change24h', label: '24h Change', icon: 'show-chart' },
   { key: 'createdAt', label: 'Age', icon: 'schedule' },
 ];
 

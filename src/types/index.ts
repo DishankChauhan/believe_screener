@@ -120,8 +120,8 @@ export type RootStackParamList = {
 export type BottomTabParamList = {
   Dashboard: undefined;
   Tokens: undefined;
+  Favorites: undefined;
   Portfolio: undefined;
-  Search: undefined;
 };
 
 // Filter and search types

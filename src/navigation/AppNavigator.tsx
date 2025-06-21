@@ -13,6 +13,7 @@ import DashboardScreen from '../screens/Dashboard/DashboardScreen';
 import TokenListScreen from '../screens/TokenList/TokenListScreen';
 import TokenDetailScreen from '../screens/TokenDetail/TokenDetailScreen';
 import PortfolioScreen from '../screens/Portfolio/PortfolioScreen';
+import FavoritesScreen from '../screens/Favorites/FavoritesScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<BottomTabParamList>();
@@ -52,16 +53,16 @@ const TabNavigator = () => {
 
           switch (route.name) {
             case 'Dashboard':
-              iconName = 'dashboard';
+              iconName = 'home';
               break;
             case 'Tokens':
               iconName = 'list';
               break;
-            case 'Portfolio':
-              iconName = 'account-balance-wallet';
+            case 'Favorites':
+              iconName = 'star';
               break;
-            case 'Search':
-              iconName = 'search';
+            case 'Portfolio':
+              iconName = 'account-circle';
               break;
             default:
               iconName = 'help';
@@ -93,9 +94,9 @@ const TabNavigator = () => {
         options={{ tabBarLabel: 'Tokens' }}
       />
       <Tab.Screen 
-        name="Search" 
-        component={TokenListScreen} // Reuse token list with search mode
-        options={{ tabBarLabel: 'Search' }}
+        name="Favorites" 
+        component={FavoritesScreen}
+        options={{ tabBarLabel: 'Favorites' }}
       />
       <Tab.Screen 
         name="Portfolio" 

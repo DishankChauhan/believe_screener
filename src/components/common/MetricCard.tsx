@@ -39,9 +39,8 @@ const MetricCard: React.FC<MetricCardProps> = ({
     return formatLargeNumber(val);
   };
 
-  const getChangeIcon = (): string => {
-    if (!change) return '';
-    return change > 0 ? 'trending-up' : change < 0 ? 'trending-down' : 'trending-flat';
+  const getChangeIcon = (change: number): string => {
+    return change > 0 ? 'arrow-upward' : change < 0 ? 'arrow-downward' : 'remove';
   };
 
   const CardContent = () => (
@@ -51,7 +50,14 @@ const MetricCard: React.FC<MetricCardProps> = ({
         <View style={styles.titleRow}>
           {icon && (
             <Icon 
-              name={icon === 'water-drop' ? 'opacity' : icon === 'people' ? 'group' : icon} 
+              name={
+                icon === 'water-drop' ? 'opacity' : 
+                icon === 'people' ? 'group' : 
+                icon === 'bar-chart' ? 'assessment' :
+                icon === 'timeline' ? 'show-chart' :
+                icon === 'rocket-launch' ? 'launch' :
+                icon
+              } 
               size={20} 
               color={COLORS.textSecondary} 
               style={styles.titleIcon}
@@ -90,7 +96,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
         {change !== undefined && (
           <View style={styles.changeContainer}>
             <Icon 
-              name={getChangeIcon()} 
+              name={getChangeIcon(change)} 
               size={16} 
               color={getChangeColor(change, COLORS)} 
               style={styles.changeIcon}

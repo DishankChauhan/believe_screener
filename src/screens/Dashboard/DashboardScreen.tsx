@@ -73,7 +73,7 @@ const DashboardScreen = () => {
                 title="Lifetime Volume"
                 value={dashboardData.lifetimeVolume}
                 subtitle="Calculated about 6 hours ago"
-                icon="trending-up"
+                icon="arrow-upward"
                 currency={true}
                 compact={false}
               />
@@ -86,7 +86,7 @@ const DashboardScreen = () => {
                 title="Coin Launches"
                 value={dashboardData.coinLaunches}
                 subtitle="@launchcoin"
-                icon="rocket-launch"
+                icon="launch"
                 currency={false}
                 compact={true}
                 change={2.5}
@@ -98,7 +98,7 @@ const DashboardScreen = () => {
                 title="Active Coins"
                 value={dashboardData.activeCoins}
                 subtitle="5+ trades in 24h"
-                icon="trending-up"
+                icon="arrow-upward"
                 currency={false}
                 compact={true}
                 change={-1.2}

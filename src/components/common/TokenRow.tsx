@@ -102,7 +102,7 @@ const TokenRow: React.FC<TokenRowProps> = ({
             { backgroundColor: getChangeColor(token.change30m, COLORS) + '20' }
           ]}>
             <Icon
-              name={token.change30m > 0 ? 'trending-up' : token.change30m < 0 ? 'trending-down' : 'trending-flat'}
+              name={token.change30m > 0 ? 'arrow-upward' : token.change30m < 0 ? 'arrow-downward' : 'remove'}
               size={12}
               color={getChangeColor(token.change30m, COLORS)}
               style={styles.changeIcon}
@@ -127,7 +127,7 @@ const TokenRow: React.FC<TokenRowProps> = ({
             { backgroundColor: getChangeColor(token.change24h, COLORS) + '20' }
           ]}>
             <Icon
-              name={token.change24h > 0 ? 'trending-up' : token.change24h < 0 ? 'trending-down' : 'trending-flat'}
+              name={token.change24h > 0 ? 'arrow-upward' : token.change24h < 0 ? 'arrow-downward' : 'remove'}
               size={12}
               color={getChangeColor(token.change24h, COLORS)}
               style={styles.changeIcon}
@@ -322,14 +322,14 @@ const styles = StyleSheet.create({
   tradeButton: {
     backgroundColor: COLORS.primary,
     borderRadius: BORDER_RADIUS.sm,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    minWidth: 45,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    minWidth: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tradeButtonText: {
-    fontSize: 10,
+    fontSize: 8,
     color: COLORS.background,
     fontWeight: 'bold',
     textAlign: 'center',

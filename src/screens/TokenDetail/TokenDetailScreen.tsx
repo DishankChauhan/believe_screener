@@ -118,7 +118,7 @@ const TokenDetailScreen: React.FC<TokenDetailScreenProps> = ({ route, navigation
     <View style={styles.header}>
       <View style={styles.headerTop}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Icon name="arrow-back" size={24} color={COLORS.textPrimary} />
+          <Icon name="arrow-back-ios" size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <TouchableOpacity onPress={handleFavoritePress} style={styles.favoriteButton}>
           <Icon
@@ -141,9 +141,9 @@ const TokenDetailScreen: React.FC<TokenDetailScreenProps> = ({ route, navigation
         </Text>
         <View style={styles.priceChange}>
           <Icon
-            name={tokenData.change24h > 0 ? 'trending-up' : 'trending-down'}
-            size={20}
-            color={getChangeColor(tokenData.change24h, COLORS)}
+            name={tokenData.change24h > 0 ? 'arrow-upward' : 'arrow-downward'}
+            size={16}
+            color={tokenData.change24h > 0 ? COLORS.success : COLORS.error}
           />
           <Text style={[styles.changeText, { color: getChangeColor(tokenData.change24h, COLORS) }]}>
             {formatPercentage(Math.abs(tokenData.change24h))} (24h)
@@ -202,7 +202,7 @@ const TokenDetailScreen: React.FC<TokenDetailScreenProps> = ({ route, navigation
               value={tokenData.marketCap}
               currency={true}
               compact={true}
-              icon="trending-up"
+              icon="assessment"
             />
           </View>
           <View style={styles.statItem}>
@@ -211,7 +211,7 @@ const TokenDetailScreen: React.FC<TokenDetailScreenProps> = ({ route, navigation
               value={tokenData.volume24h}
               currency={true}
               compact={true}
-              icon="bar-chart"
+              icon="opacity"
             />
           </View>
         </View>
@@ -223,7 +223,7 @@ const TokenDetailScreen: React.FC<TokenDetailScreenProps> = ({ route, navigation
               value={tokenData.liquidity}
               currency={true}
               compact={true}
-              icon="water-drop"
+              icon="group"
             />
           </View>
           <View style={styles.statItem}>
@@ -232,7 +232,7 @@ const TokenDetailScreen: React.FC<TokenDetailScreenProps> = ({ route, navigation
               value={tokenData.holders}
               currency={false}
               compact={true}
-              icon="people"
+              icon="group"
             />
           </View>
         </View>
@@ -319,7 +319,7 @@ const TokenDetailScreen: React.FC<TokenDetailScreenProps> = ({ route, navigation
     <View style={styles.tradeButtonSection}>
       <TouchableOpacity style={styles.tradeButton} onPress={handleTradePress}>
         <Text style={styles.tradeButtonText}>Trade {tokenData.symbol}</Text>
-        <Icon name="arrow-forward" size={20} color={COLORS.background} />
+        <Icon name="arrow-forward-ios" size={20} color={COLORS.background} />
       </TouchableOpacity>
     </View>
   );

@@ -103,6 +103,20 @@ const PriceChart: React.FC<PriceChartProps> = ({
     fillShadowGradientFromOpacity: type === 'area' ? 0.6 : 0.2,
     fillShadowGradientTo: type === 'volume' ? '#9C27B0' : COLORS.primary,
     fillShadowGradientToOpacity: 0.1,
+    // Chart padding and margins for proper label spacing
+    paddingLeft: 80, // Increased even more for Y-axis labels
+    paddingRight: 16,
+    paddingTop: 16,
+    paddingBottom: 16,
+    // Format Y-axis labels to ensure proper spacing
+    formatYLabel: (yValue: string) => {
+      const num = parseFloat(yValue);
+      if (type === 'volume') {
+        return num.toFixed(1);
+      }
+      // For price values, ensure consistent decimal places
+      return num.toFixed(6);
+    },
   });
 
   // Calculate price change
@@ -117,32 +131,36 @@ const PriceChart: React.FC<PriceChartProps> = ({
 
   const renderChartTypeButtons = () => (
     <View style={styles.chartTypeContainer}>
-      <TouchableOpacity
-        style={[styles.chartTypeButton, chartType === 'area' && styles.activeChartType]}
-        onPress={() => setChartType('area')}
-      >
-        <Icon name="show-chart" size={16} color={chartType === 'area' ? COLORS.background : COLORS.textMuted} />
-        <Text style={[styles.chartTypeText, chartType === 'area' && styles.activeChartTypeText]}>
-          Area
-        </Text>
-      </TouchableOpacity>
+      {/* Chart Type Selection (Mutually Exclusive) */}
+      <View style={styles.chartTypeGroup}>
+        <TouchableOpacity
+          style={[styles.chartTypeButton, chartType === 'area' && styles.activeChartType]}
+          onPress={() => setChartType('area')}
+        >
+          <Icon name="trending-up" size={16} color={chartType === 'area' ? COLORS.background : COLORS.textMuted} />
+          <Text style={[styles.chartTypeText, chartType === 'area' && styles.activeChartTypeText]}>
+            Area
+          </Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity
-        style={[styles.chartTypeButton, chartType === 'line' && styles.activeChartType]}
-        onPress={() => setChartType('line')}
-      >
-        <Icon name="timeline" size={16} color={chartType === 'line' ? COLORS.background : COLORS.textMuted} />
-        <Text style={[styles.chartTypeText, chartType === 'line' && styles.activeChartTypeText]}>
-          Line
-        </Text>
-      </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.chartTypeButton, chartType === 'line' && styles.activeChartType]}
+          onPress={() => setChartType('line')}
+        >
+          <Icon name="show-chart" size={16} color={chartType === 'line' ? COLORS.background : COLORS.textMuted} />
+          <Text style={[styles.chartTypeText, chartType === 'line' && styles.activeChartTypeText]}>
+            Line
+          </Text>
+        </TouchableOpacity>
+      </View>
 
+      {/* Volume Toggle (Separate) */}
       <TouchableOpacity
-        style={[styles.chartTypeButton, showVolume && styles.activeChartType]}
+        style={[styles.volumeToggle, showVolume && styles.activeVolumeToggle]}
         onPress={() => setShowVolume(!showVolume)}
       >
-        <Icon name="bar-chart" size={16} color={showVolume ? COLORS.background : COLORS.textMuted} />
-        <Text style={[styles.chartTypeText, showVolume && styles.activeChartTypeText]}>
+        <Icon name="assessment" size={16} color={showVolume ? COLORS.background : COLORS.textMuted} />
+        <Text style={[styles.volumeToggleText, showVolume && styles.activeVolumeToggleText]}>
           Volume
         </Text>
       </TouchableOpacity>
@@ -153,14 +171,14 @@ const PriceChart: React.FC<PriceChartProps> = ({
     if (data.length <= 1) {
       return (
         <View style={[styles.noDataContainer, { height }]}>
-          <Icon name="show-chart" size={48} color={COLORS.textMuted} />
+          <Icon name="trending-up" size={48} color={COLORS.textMuted} />
           <Text style={styles.noDataText}>No chart data available</Text>
           <Text style={styles.noDataSubtext}>Price data will appear here when available</Text>
         </View>
       );
     }
 
-    const chartWidth = screenWidth - (SPACING.md * 2);
+    const chartWidth = screenWidth - (SPACING.md * 2) - 20; // Slight reduction to accommodate padding
     const chartHeight = showVolume ? height - 80 : height;
 
     return (
@@ -186,6 +204,10 @@ const PriceChart: React.FC<PriceChartProps> = ({
               fromZero={false}
               segments={4}
               bezier
+              yAxisLabel=""
+              yAxisSuffix=""
+              yAxisInterval={1}
+              formatYLabel={(yValue) => parseFloat(yValue).toFixed(6)}
             />
           ) : (
             <LineChart
@@ -201,6 +223,10 @@ const PriceChart: React.FC<PriceChartProps> = ({
               withHorizontalLabels={true}
               fromZero={false}
               segments={4}
+              yAxisLabel=""
+              yAxisSuffix=""
+              yAxisInterval={1}
+              formatYLabel={(yValue) => parseFloat(yValue).toFixed(6)}
             />
           )}
         </View>
@@ -221,6 +247,9 @@ const PriceChart: React.FC<PriceChartProps> = ({
               withHorizontalLabels={false}
               fromZero={true}
               segments={2}
+              yAxisLabel=""
+              yAxisSuffix=""
+              formatYLabel={(yValue) => parseFloat(yValue).toFixed(1)}
             />
           </View>
         )}
@@ -295,8 +324,13 @@ const styles = StyleSheet.create({
   },
   chartTypeContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: SPACING.md,
+    paddingHorizontal: SPACING.sm,
+  },
+  chartTypeGroup: {
+    flexDirection: 'row',
     backgroundColor: COLORS.backgroundTertiary,
     borderRadius: BORDER_RADIUS.sm,
     padding: 4,
@@ -321,8 +355,32 @@ const styles = StyleSheet.create({
     color: COLORS.background,
     fontWeight: '600',
   },
+  volumeToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+    borderRadius: BORDER_RADIUS.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  activeVolumeToggle: {
+    backgroundColor: '#9C27B0',
+    borderColor: '#9C27B0',
+  },
+  volumeToggleText: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.textMuted,
+    marginLeft: 4,
+  },
+  activeVolumeToggleText: {
+    color: COLORS.background,
+    fontWeight: '600',
+  },
   chartContainer: {
     alignItems: 'center',
+    paddingLeft: SPACING.sm, // Reduced back to minimal padding
+    paddingRight: SPACING.sm, // Add some right padding for balance
   },
   mainChart: {
     marginBottom: SPACING.xs,
