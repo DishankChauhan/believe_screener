@@ -54,6 +54,23 @@ const TokenDetailScreen: React.FC<TokenDetailScreenProps> = ({ route, navigation
     contractAddress: tokenId,
     address: tokenId,
     createdAt: Date.now(),
+    // Add new fields with defaults
+    totalSupply: 0,
+    circulatingSupply: 0,
+    topHolders: [],
+    tradingActivity24h: {
+      totalTrades: 0,
+      uniqueWallets: 0,
+      buys: { count: 0, volume: 0 },
+      sells: { count: 0, volume: 0 }
+    },
+    allTimeTradingActivity: {
+      totalTrades: 0,
+      totalVolume: 0,
+      buys: { count: 0, volume: 0 },
+      sells: { count: 0, volume: 0 }
+    },
+    chartData: []
   };
 
   const currentTokenData = tokenData || fallbackTokenData;
@@ -65,15 +82,17 @@ const TokenDetailScreen: React.FC<TokenDetailScreenProps> = ({ route, navigation
     low: currentTokenData.price * 0.96, // Estimate
     close: currentTokenData.price,
     volume: currentTokenData.volume24h,
-    chartData: [
-      { timestamp: Date.now() - 24 * 60 * 60 * 1000, price: currentTokenData.price * 1.25, volume: currentTokenData.volume24h * 0.8 },
-      { timestamp: Date.now() - 20 * 60 * 60 * 1000, price: currentTokenData.price * 1.31, volume: currentTokenData.volume24h * 0.9 },
-      { timestamp: Date.now() - 16 * 60 * 60 * 1000, price: currentTokenData.price * 1.27, volume: currentTokenData.volume24h * 1.1 },
-      { timestamp: Date.now() - 12 * 60 * 60 * 1000, price: currentTokenData.price * 1.12, volume: currentTokenData.volume24h * 1.2 },
-      { timestamp: Date.now() - 8 * 60 * 60 * 1000, price: currentTokenData.price * 1.04, volume: currentTokenData.volume24h * 1.0 },
-      { timestamp: Date.now() - 4 * 60 * 60 * 1000, price: currentTokenData.price * 0.96, volume: currentTokenData.volume24h * 0.95 },
-      { timestamp: Date.now(), price: currentTokenData.price, volume: currentTokenData.volume24h },
-    ],
+    chartData: currentTokenData.chartData && currentTokenData.chartData.length > 0 
+      ? currentTokenData.chartData 
+      : [
+        { timestamp: Date.now() - 24 * 60 * 60 * 1000, price: currentTokenData.price * 1.25, volume: currentTokenData.volume24h * 0.8 },
+        { timestamp: Date.now() - 20 * 60 * 60 * 1000, price: currentTokenData.price * 1.31, volume: currentTokenData.volume24h * 0.9 },
+        { timestamp: Date.now() - 16 * 60 * 60 * 1000, price: currentTokenData.price * 1.27, volume: currentTokenData.volume24h * 1.1 },
+        { timestamp: Date.now() - 12 * 60 * 60 * 1000, price: currentTokenData.price * 1.12, volume: currentTokenData.volume24h * 1.2 },
+        { timestamp: Date.now() - 8 * 60 * 60 * 1000, price: currentTokenData.price * 1.04, volume: currentTokenData.volume24h * 1.0 },
+        { timestamp: Date.now() - 4 * 60 * 60 * 1000, price: currentTokenData.price * 0.96, volume: currentTokenData.volume24h * 0.95 },
+        { timestamp: Date.now(), price: currentTokenData.price, volume: currentTokenData.volume24h },
+      ],
     momentum: {
       '30m': currentTokenData.change30m,
       '1h': currentTokenData.change30m * 0.8,
@@ -82,22 +101,39 @@ const TokenDetailScreen: React.FC<TokenDetailScreenProps> = ({ route, navigation
     },
   };
 
+  // Use real trading activity data from API
   const tradingActivity: TradingActivity = {
-    totalTrades: currentTokenData.trades24h,
-    uniqueWallets: Math.floor(currentTokenData.trades24h * 0.1), // Estimate
-    buyVolume: currentTokenData.volume24h * 0.61, // Estimate 61% buy volume
-    sellVolume: currentTokenData.volume24h * 0.39, // Estimate 39% sell volume
-    buyTrades: Math.floor(currentTokenData.trades24h * 0.61),
-    sellTrades: Math.floor(currentTokenData.trades24h * 0.39),
+    totalTrades: currentTokenData.tradingActivity24h?.totalTrades || currentTokenData.trades24h || 0,
+    uniqueWallets: currentTokenData.tradingActivity24h?.uniqueWallets || Math.floor((currentTokenData.trades24h || 0) * 0.1),
+    buyVolume: currentTokenData.tradingActivity24h?.buys?.volume || currentTokenData.volume24h * 0.61,
+    sellVolume: currentTokenData.tradingActivity24h?.sells?.volume || currentTokenData.volume24h * 0.39,
+    buyTrades: currentTokenData.tradingActivity24h?.buys?.count || Math.floor((currentTokenData.trades24h || 0) * 0.61),
+    sellTrades: currentTokenData.tradingActivity24h?.sells?.count || Math.floor((currentTokenData.trades24h || 0) * 0.39),
   };
 
-  const topHolders: TopHolder[] = [
-    { address: `${currentTokenData.address.slice(0, 6)}...${currentTokenData.address.slice(-6)}`, percentage: 12.5, amount: currentTokenData.marketCap * 0.125 / currentTokenData.price, value: currentTokenData.marketCap * 0.125, isLargest: true },
-    { address: `${currentTokenData.address.slice(1, 7)}...${currentTokenData.address.slice(-5)}`, percentage: 8.3, amount: currentTokenData.marketCap * 0.083 / currentTokenData.price, value: currentTokenData.marketCap * 0.083 },
-    { address: `${currentTokenData.address.slice(2, 8)}...${currentTokenData.address.slice(-4)}`, percentage: 6.1, amount: currentTokenData.marketCap * 0.061 / currentTokenData.price, value: currentTokenData.marketCap * 0.061 },
-    { address: `${currentTokenData.address.slice(3, 9)}...${currentTokenData.address.slice(-3)}`, percentage: 4.8, amount: currentTokenData.marketCap * 0.048 / currentTokenData.price, value: currentTokenData.marketCap * 0.048 },
-    { address: `${currentTokenData.address.slice(4, 10)}...${currentTokenData.address.slice(-2)}`, percentage: 3.9, amount: currentTokenData.marketCap * 0.039 / currentTokenData.price, value: currentTokenData.marketCap * 0.039 },
-  ];
+  // Use real top holders data from API
+  const topHolders: TopHolder[] = currentTokenData.topHolders && currentTokenData.topHolders.length > 0
+    ? currentTokenData.topHolders
+        .filter((holder, index, arr) => {
+          // Filter out duplicates and invalid entries
+          return holder && holder.address && 
+                 arr.findIndex(h => h.address === holder.address) === index;
+        })
+        .slice(0, 10) // Limit to top 10
+        .map((holder, index) => ({
+          address: `${holder.address.slice(0, 6)}...${holder.address.slice(-6)}`,
+          percentage: holder.percentage || 0,
+          amount: holder.amount || 0,
+          value: (holder.amount || 0) * currentTokenData.price,
+          isLargest: index === 0
+        }))
+    : [
+        { address: `${currentTokenData.address.slice(0, 6)}...${currentTokenData.address.slice(-6)}`, percentage: 12.5, amount: currentTokenData.marketCap * 0.125 / currentTokenData.price, value: currentTokenData.marketCap * 0.125, isLargest: true },
+        { address: `${currentTokenData.address.slice(1, 7)}...${currentTokenData.address.slice(-5)}`, percentage: 8.3, amount: currentTokenData.marketCap * 0.083 / currentTokenData.price, value: currentTokenData.marketCap * 0.083 },
+        { address: `${currentTokenData.address.slice(2, 8)}...${currentTokenData.address.slice(-4)}`, percentage: 6.1, amount: currentTokenData.marketCap * 0.061 / currentTokenData.price, value: currentTokenData.marketCap * 0.061 },
+        { address: `${currentTokenData.address.slice(3, 9)}...${currentTokenData.address.slice(-3)}`, percentage: 4.8, amount: currentTokenData.marketCap * 0.048 / currentTokenData.price, value: currentTokenData.marketCap * 0.048 },
+        { address: `${currentTokenData.address.slice(4, 10)}...${currentTokenData.address.slice(-2)}`, percentage: 3.9, amount: currentTokenData.marketCap * 0.039 / currentTokenData.price, value: currentTokenData.marketCap * 0.039 },
+      ];
 
   const onRefresh = () => {
     refetch();
@@ -269,9 +305,74 @@ const TokenDetailScreen: React.FC<TokenDetailScreenProps> = ({ route, navigation
     </View>
   );
 
+  const renderTokenDetails = () => (
+    <View style={styles.tokenDetailsSection}>
+      <Text style={styles.sectionTitle}>Token Details</Text>
+      <View style={styles.tokenDetailsGrid}>
+        <View style={styles.tokenDetailsRow}>
+          <View style={styles.tokenDetailItem}>
+            <Text style={styles.tokenDetailLabel}>Total Supply</Text>
+            <Text style={styles.tokenDetailValue}>
+              {formatLargeNumber(currentTokenData.totalSupply || 0)}
+            </Text>
+          </View>
+          <View style={styles.tokenDetailItem}>
+            <Text style={styles.tokenDetailLabel}>Circulating Supply</Text>
+            <Text style={styles.tokenDetailValue}>
+              {formatLargeNumber(currentTokenData.circulatingSupply || 0)}
+            </Text>
+          </View>
+        </View>
+        
+        {currentTokenData.allTimeTradingActivity && (
+          <View style={styles.allTimeSection}>
+            <Text style={styles.allTimeTitle}>All-Time Trading Activity</Text>
+            <View style={styles.allTimeGrid}>
+              <View style={styles.allTimeRow}>
+                <View style={styles.allTimeItem}>
+                  <Text style={styles.allTimeLabel}>Total Trades</Text>
+                  <Text style={styles.allTimeValue}>
+                    {formatLargeNumber(currentTokenData.allTimeTradingActivity.totalTrades)}
+                  </Text>
+                </View>
+                <View style={styles.allTimeItem}>
+                  <Text style={styles.allTimeLabel}>Total Volume</Text>
+                  <Text style={styles.allTimeValue}>
+                    {formatCurrency(currentTokenData.allTimeTradingActivity.totalVolume, 'USD', true)}
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.allTimeRow}>
+                <View style={styles.allTimeItem}>
+                  <Text style={styles.allTimeLabel}>All-Time Buys</Text>
+                  <Text style={styles.allTimeValue}>
+                    {formatLargeNumber(currentTokenData.allTimeTradingActivity.buys.count)}
+                  </Text>
+                  <Text style={styles.allTimeSubtext}>
+                    {formatCurrency(currentTokenData.allTimeTradingActivity.buys.volume, 'USD', true)}
+                  </Text>
+                </View>
+                <View style={styles.allTimeItem}>
+                  <Text style={styles.allTimeLabel}>All-Time Sells</Text>
+                  <Text style={styles.allTimeValue}>
+                    {formatLargeNumber(currentTokenData.allTimeTradingActivity.sells.count)}
+                  </Text>
+                  <Text style={styles.allTimeSubtext}>
+                    {formatCurrency(currentTokenData.allTimeTradingActivity.sells.volume, 'USD', true)}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+
   const renderTradingActivity = () => (
     <View style={styles.tradingSection}>
-      <Text style={styles.sectionTitle}>Trading Activity</Text>
+      <Text style={styles.sectionTitle}>24h Trading Activity</Text>
       <View style={styles.tradingGrid}>
         <View style={styles.tradingRow}>
           <View style={styles.tradingItem}>
@@ -317,7 +418,7 @@ const TokenDetailScreen: React.FC<TokenDetailScreenProps> = ({ route, navigation
       <Text style={styles.sectionTitle}>Top Holders</Text>
       <View style={styles.holdersList}>
         {topHolders.map((holder, index) => (
-          <View key={holder.address} style={styles.holderRow}>
+          <View key={`holder-${index}-${holder.address}`} style={styles.holderRow}>
             <View style={styles.holderRank}>
               <Text style={styles.holderRankText}>{index + 1}</Text>
             </View>
@@ -371,6 +472,7 @@ const TokenDetailScreen: React.FC<TokenDetailScreenProps> = ({ route, navigation
         {renderHeader()}
         {renderChart()}
         {renderStats()}
+        {renderTokenDetails()}
         {renderTradingActivity()}
         {renderTopHolders()}
         
@@ -665,6 +767,70 @@ const styles = StyleSheet.create({
     fontSize: FONTS.sizes.md,
     fontWeight: 'bold',
     color: COLORS.background,
+  },
+  tokenDetailsSection: {
+    padding: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  tokenDetailsGrid: {
+    marginTop: SPACING.md,
+  },
+  tokenDetailsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.md,
+  },
+  tokenDetailItem: {
+    flex: 0.48,
+  },
+  tokenDetailLabel: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xs,
+  },
+  tokenDetailValue: {
+    fontSize: FONTS.sizes.lg,
+    fontWeight: 'bold',
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
+  },
+  allTimeSection: {
+    padding: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  allTimeTitle: {
+    fontSize: FONTS.sizes.lg,
+    fontWeight: '600',
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
+  },
+  allTimeGrid: {
+    marginTop: SPACING.md,
+  },
+  allTimeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.md,
+  },
+  allTimeItem: {
+    flex: 0.48,
+  },
+  allTimeLabel: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.textSecondary,
+    marginBottom: SPACING.xs,
+  },
+  allTimeValue: {
+    fontSize: FONTS.sizes.lg,
+    fontWeight: 'bold',
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
+  },
+  allTimeSubtext: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.textMuted,
   },
 });
 

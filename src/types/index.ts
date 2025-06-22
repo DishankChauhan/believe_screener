@@ -21,6 +21,49 @@ export interface Token {
   high?: number;
   low?: number;
   close?: number;
+  // Enhanced data from comprehensive scraping
+  totalSupply?: number;
+  circulatingSupply?: number;
+  topHolders?: TopHolderData[];
+  tradingActivity24h?: TradingActivityData;
+  allTimeTradingActivity?: AllTimeTradingActivityData;
+  chartData?: ChartDataPoint[];
+  rank?: number;
+}
+
+// Enhanced trading activity types
+export interface TradingActivityData {
+  totalTrades: number;
+  uniqueWallets: number;
+  buys: {
+    count: number;
+    volume: number;
+  };
+  sells: {
+    count: number;
+    volume: number;
+  };
+}
+
+export interface AllTimeTradingActivityData {
+  totalTrades: number;
+  totalVolume: number;
+  buys: {
+    count: number;
+    volume: number;
+  };
+  sells: {
+    count: number;
+    volume: number;
+  };
+}
+
+// Top holders data from API
+export interface TopHolderData {
+  address: string;
+  percentage: number;
+  amount: number;
+  rank: number;
 }
 
 // Portfolio related types

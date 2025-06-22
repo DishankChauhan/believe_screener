@@ -10,30 +10,6 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// Token IDs from believescreener.com
-const TOKEN_IDS = {
-  DUPE: 'fRfKGCriduzDwSudCwpL7ySCEiboNuryhZDVJtr1a1C',
-  LAUNCHCOIN: 'Ey59PH7Z4BFU4HjyKnyMdWt5GGN76KazTAwQihoUXRnk',
-  KLED: '1zJX5gRnjLgmTpq5sVwkq69mNDQkCemqoasyjaPW6jm',
-  KNET: 'CfVs3waH2Z9TM397qSkaipTDhA9wWgtt8UchZKfwkYiu',
-  STARTUP: '97PVGU2DzFqsAWaYU17ZBqGvQFmkqtdMywYBNPAfy8vy',
-  PCULE: 'J27UYHX5oeaG1YbUGQc8BmJySXDjNWChdGB2Pi2TMDAq',
-  YAPPER: 'H1aoUqmp2vJu5o8w3o8LjrN6jKyWErS69PtYxGhfoXxf',
-  FITCOIN: 'Cr2mM4szbt8286XMn7iTpY5A8S17LbGAu1UyodkyEwn4',
-  BUDDY: '65svCEvM4HdBHXKDxfhjm3yw1A6mKXkdS6HXWXDQTSNA',
-  GIGGLES: 'Bsow2wFkVzy1itJnhLke6VRTqoEkYQZp7kbwPtS87FyN',
-  GOONC: 'ENfpbQUM5xAnNP8ecyEQGFJ6KwbuPjMwv7ZjR29cDuAb',
-  SUBY: 'G2pMCBjRQHHCkE79r9KAESvdhUCieWPZvX5GRFa3jCLg',
-  YOURSELF: 'Etd4QU7PGuzh4ozkzzBBjMmySNkU21BZamB7qPR1xBLV',
-  DTR: 'FkqvTmDNgxgcdS7fPbZoQhPVuaYJPwSsP8mm4p7oNgf6',
-  RIP_VC: 'EeguLg7Zh6F86ZSJtcsDgsxUsA3t5Gci5Kr85AvkxA4B',
-  RUNNIT: '5mjbjHRb327yvcWUc5WPywhCbYi32pqUqxPUCtpipBLV',
-  ZEUZ: 'GvRf47WPg9uaYcyXEs5UxHL2D39P7yTByBDrQcyMk5wg',
-  FINNA: '8bmDcRBjBfcoAtU9xFg8gSdUzvjK85cBmdgbMN9kuBLV',
-  PROMPT: '9NW7fiBu4uHpLx3rxiMccucyKwADwuptTpb8z2YYj9SH',
-  PNP: 'ArQNTJtmxuWQ77KB7a1PmoZc5Zd25jXmXPDWBX8qVoux',
-};
-
 const RSC_PARAMS = ['rxx9e', 'abc123', 'def456', 'ghi789', 'jkl012'];
 
 // Create axios instance with browser-like headers
@@ -128,7 +104,7 @@ const scrapeAllTokens = async () => {
         
         // Try different patterns to extract symbol and name
         const patterns = [
-          /^([A-Z]+)\s+(.+)$/,  // "SYMBOL Name"
+          /^([A-Z0-9]+)\s+(.+)$/,  // "SYMBOL Name"
           /^([A-Z0-9]+)\s*(.*)$/,  // "SYMBOL123 Name"
         ];
         
@@ -141,18 +117,79 @@ const scrapeAllTokens = async () => {
           }
         }
         
+        // Clean up the name - remove duplicated parts and common artifacts
+        if (name && symbol) {
+          // Remove symbol from the beginning of name if it's duplicated
+          name = name.replace(new RegExp(`^${symbol}\\s*`, 'i'), '');
+          
+          // Remove common artifacts and clean up
+          name = name
+            .replace(/^\s*\(.*?\)\s*/, '') // Remove parentheses at start
+            .replace(/^\s*-\s*/, '') // Remove leading dash
+            .replace(/^\s*\.\s*/, '') // Remove leading dot
+            .trim();
+          
+          // If name is empty or too short after cleaning, use symbol
+          if (!name || name.length < 2) {
+            name = symbol;
+          }
+          
+          // Capitalize first letter of each word in name
+          name = name.split(' ').map(word => 
+            word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+          ).join(' ');
+        }
+        
         // If we couldn't parse symbol/name, skip this row
         if (!symbol) return;
         
-        // Extract price (usually in second or third cell)
+        // Extract price from the current price section more precisely
         let price = 0;
-        for (let i = 1; i < Math.min(cells.length, 4); i++) {
-          const cellText = $(cells[i]).text().trim();
-          const priceMatch = cellText.match(/\$([0-9.]+)/);
-          if (priceMatch) {
-            price = parseFloat(priceMatch[1]);
-            break;
+        $('*').each((index, element) => {
+          const text = $(element).text().trim();
+          
+          // Look specifically for "Current Price" section
+          if (text.includes('Current Price') && !price) {
+            // Find the price value in the same container
+            const container = $(element).closest('div');
+            const priceElement = container.find('*').filter((i, el) => {
+              const txt = $(el).text().trim();
+              // Look for price format like $0.001750 (not $1.7M or $136.7K)
+              return txt.match(/^\$0\.[0-9]+$/) || txt.match(/^\$[0-9]+\.[0-9]{6,}$/);
+            }).first();
+            
+            if (priceElement.length) {
+              const priceText = priceElement.text().trim();
+              const priceMatch = priceText.match(/\$([0-9]+\.?[0-9]*)/);
+              if (priceMatch) {
+                price = parseFloat(priceMatch[1]);
+                console.log(`💰 Found current price: $${price}`);
+              }
+            }
           }
+        });
+        
+        // If we still haven't found the price, look for it in the price chart section
+        if (!price) {
+          $('*').each((index, element) => {
+            const text = $(element).text().trim();
+            
+            // Look for price in price chart or token info sections
+            if ((text.includes('$0.') || text.includes('$1.') || text.includes('$2.')) && text.length < 15) {
+              // Make sure it's not a market cap or volume (those have K, M, B suffixes)
+              if (!text.includes('K') && !text.includes('M') && !text.includes('B')) {
+                const priceMatch = text.match(/\$([0-9]+\.?[0-9]*)/);
+                if (priceMatch && !price) {
+                  const extractedPrice = parseFloat(priceMatch[1]);
+                  // Only accept prices that look reasonable (not 1.0 exactly which might be hardcoded)
+                  if (extractedPrice !== 1.0 && extractedPrice < 10) {
+                    price = extractedPrice;
+                    console.log(`💰 Found price from chart: $${price}`);
+                  }
+                }
+              }
+            }
+          });
         }
         
         // Extract market cap
@@ -180,27 +217,27 @@ const scrapeAllTokens = async () => {
           contractAddress = `${symbol.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         }
         
-        // Create token object
+        // Create token object with only real data
         const token = {
           id: contractAddress,
           address: contractAddress,
           contractAddress: contractAddress,
           name: name || symbol,
           symbol: symbol,
-          price: price || 0.001,
-          marketCap: marketCap || 1000000,
-          volume24h: marketCap * 0.1, // Estimate volume as 10% of market cap
+          price: price,
+          marketCap: marketCap,
+          volume24h: 0, // Will be extracted from real data only
           change24h: change24h,
-          change30m: (Math.random() - 0.5) * 20, // Random 30m change
-          transactions24h: Math.floor((marketCap * 0.1) / (price * 100)),
-          trades24h: Math.floor((marketCap * 0.1) / (price * 200)),
-          age: Math.floor(Math.random() * 90) + 'd',
-          holders: Math.floor(Math.random() * 10000 + 1000),
-          liquidity: marketCap * 0.15,
-          createdAt: Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000,
-          open: price * (1 - change24h / 100),
-          high: price * 1.05,
-          low: price * 0.95,
+          change30m: 0, // Will be extracted from real data only
+          transactions24h: 0, // Will be extracted from real data only
+          trades24h: 0, // Will be extracted from real data only
+          age: 'unknown', // Will be extracted from real data only
+          holders: 0, // Will be extracted from real data only
+          liquidity: 0, // Will be extracted from real data only
+          createdAt: Date.now(),
+          open: price,
+          high: price,
+          low: price,
           close: price,
         };
         
@@ -238,19 +275,19 @@ const scrapeAllTokens = async () => {
               name: symbol,
               symbol: symbol,
               price: price,
-              marketCap: price * 1000000,
-              volume24h: price * 100000,
-              change24h: (Math.random() - 0.5) * 20,
-              change30m: (Math.random() - 0.5) * 10,
-              transactions24h: Math.floor(Math.random() * 1000),
-              trades24h: Math.floor(Math.random() * 500),
-              age: Math.floor(Math.random() * 30) + 'd',
-              holders: Math.floor(Math.random() * 5000 + 500),
-              liquidity: price * 150000,
-              createdAt: Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000,
-              open: price * 0.95,
-              high: price * 1.05,
-              low: price * 0.90,
+              marketCap: 0, // Only real data
+              volume24h: 0, // Only real data
+              change24h: 0, // Only real data
+              change30m: 0, // Only real data
+              transactions24h: 0, // Only real data
+              trades24h: 0, // Only real data
+              age: 'unknown', // Only real data
+              holders: 0, // Only real data
+              liquidity: 0, // Only real data
+              createdAt: Date.now(),
+              open: price,
+              high: price,
+              low: price,
               close: price,
             };
             
@@ -269,119 +306,8 @@ const scrapeAllTokens = async () => {
   } catch (error) {
     console.error('❌ Error scraping tokens from believescreener.com:', error.message);
     
-    // Return fallback mock data based on what we see on the actual site
-    return [
-      {
-        id: 'Ey59PH7Z4BFU4HjyKnyMdWt5GGN76KazTAwQihoUXRnk',
-        address: 'Ey59PH7Z4BFU4HjyKnyMdWt5GGN76KazTAwQihoUXRnk',
-        contractAddress: 'Ey59PH7Z4BFU4HjyKnyMdWt5GGN76KazTAwQihoUXRnk',
-        name: 'Launch Coin on Believe',
-        symbol: 'LAUNCHCOIN',
-        price: 0.088941,
-        marketCap: 88920000,
-        volume24h: 23100000,
-        change24h: 2.92,
-        change30m: 1.32,
-        transactions24h: 67560,
-        trades24h: 33780,
-        age: '4mo',
-        holders: 33000,
-        liquidity: 4970000,
-        createdAt: Date.now() - 120 * 24 * 60 * 60 * 1000,
-        open: 0.086418,
-        high: 0.093388,
-        low: 0.082297,
-        close: 0.088941,
-      },
-      {
-        id: 'fRfKGCriduzDwSudCwpL7ySCEiboNuryhZDVJtr1a1C',
-        address: 'fRfKGCriduzDwSudCwpL7ySCEiboNuryhZDVJtr1a1C',
-        contractAddress: 'fRfKGCriduzDwSudCwpL7ySCEiboNuryhZDVJtr1a1C',
-        name: 'Dupe',
-        symbol: 'DUPE',
-        price: 0.016856,
-        marketCap: 16850000,
-        volume24h: 1180000,
-        change24h: -13.02,
-        change30m: -1.58,
-        transactions24h: 6590,
-        trades24h: 3295,
-        age: '1mo',
-        holders: 7000,
-        liquidity: 1890000,
-        createdAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
-        open: 0.019384,
-        high: 0.017699,
-        low: 0.016013,
-        close: 0.016856,
-      },
-      {
-        id: '1zJX5gRnjLgmTpq5sVwkq69mNDQkCemqoasyjaPW6jm',
-        address: '1zJX5gRnjLgmTpq5sVwkq69mNDQkCemqoasyjaPW6jm',
-        contractAddress: '1zJX5gRnjLgmTpq5sVwkq69mNDQkCemqoasyjaPW6jm',
-        name: 'KLEDAI',
-        symbol: 'KLED',
-        price: 0.008872,
-        marketCap: 8870000,
-        volume24h: 1870000,
-        change24h: -20.47,
-        change30m: 6.47,
-        transactions24h: 6500,
-        trades24h: 3250,
-        age: '4w',
-        holders: 5000,
-        liquidity: 1060000,
-        createdAt: Date.now() - 28 * 24 * 60 * 60 * 1000,
-        open: 0.011158,
-        high: 0.009316,
-        low: 0.008428,
-        close: 0.008872,
-      },
-      {
-        id: 'CfVs3waH2Z9TM397qSkaipTDhA9wWgtt8UchZKfwkYiu',
-        address: 'CfVs3waH2Z9TM397qSkaipTDhA9wWgtt8UchZKfwkYiu',
-        contractAddress: 'CfVs3waH2Z9TM397qSkaipTDhA9wWgtt8UchZKfwkYiu',
-        name: 'Kingnet AI',
-        symbol: 'KNET',
-        price: 0.007666,
-        marketCap: 7670000,
-        volume24h: 788810,
-        change24h: -9.93,
-        change30m: 0.44,
-        transactions24h: 4210,
-        trades24h: 2105,
-        age: '1mo',
-        holders: 6000,
-        liquidity: 830920,
-        createdAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
-        open: 0.008516,
-        high: 0.008050,
-        low: 0.007282,
-        close: 0.007666,
-      },
-      {
-        id: '97PVGU2DzFqsAWaYU17ZBqGvQFmkqtdMywYBNPAfy8vy',
-        address: '97PVGU2DzFqsAWaYU17ZBqGvQFmkqtdMywYBNPAfy8vy',
-        contractAddress: '97PVGU2DzFqsAWaYU17ZBqGvQFmkqtdMywYBNPAfy8vy',
-        name: 'Startup',
-        symbol: 'STARTUP',
-        price: 0.004309,
-        marketCap: 4270000,
-        volume24h: 547720,
-        change24h: -17.72,
-        change30m: 0.84,
-        transactions24h: 2640,
-        trades24h: 1320,
-        age: '1mo',
-        holders: 6000,
-        liquidity: 553010,
-        createdAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
-        open: 0.005238,
-        high: 0.004524,
-        low: 0.004094,
-        close: 0.004309,
-      }
-    ];
+    // Return empty array instead of fallback mock data
+    return [];
   }
 };
 
@@ -452,28 +378,482 @@ const fetchDashboardMetrics = async () => {
   } catch (error) {
     console.error('❌ Error fetching dashboard metrics:', error.message);
     
-    // Return fallback data based on the actual site
-    return {
-      lifetimeVolume: 3771943938,
-      coinLaunches: 40612,
-      activeCoins: 158,
-      totalMarketCap: 165150000,
-      volume24h: 32180000,
-      transactions24h: 114690,
-      totalLiquidity: 19540000,
-      creatorCoinsStats: {
-        marketCap: 76230000,
-        volume: 9080000,
-        transactions: 47120,
-        liquidity: 14560000,
-      },
-      launchCoinStats: {
-        marketCap: 88920000,
-        volume: 23100000,
-        transactions: 67560,
-        liquidity: 4970000,
-      },
+    // Return null instead of fallback data
+    return null;
+  }
+};
+
+// Fetch individual token data from the actual token detail page
+const fetchTokenDetailPage = async (tokenId) => {
+  const axiosInstance = createAxiosInstance();
+  
+  try {
+    console.log(`🚀 Fetching token detail page for: ${tokenId}`);
+    
+    const tokenUrl = `https://www.believescreener.com/token/${tokenId}`;
+    const response = await axiosInstance.get(tokenUrl);
+    const html = response.data;
+    const $ = cheerio.load(html);
+    
+    // Extract token basic info
+    let symbol = '';
+    let name = '';
+    let price = 0;
+    let marketCap = 0;
+    let volume24h = 0;
+    let change24h = 0;
+    let rank = 0;
+    let liquidity = 0;
+    let holders = 0;
+    let age = '';
+    
+    // New detailed data to extract
+    let totalSupply = 0;
+    let circulatingSupply = 0;
+    let topHolders = [];
+    let tradingActivity24h = {
+      totalTrades: 0,
+      uniqueWallets: 0,
+      buys: { count: 0, volume: 0 },
+      sells: { count: 0, volume: 0 }
     };
+    let allTimeTradingActivity = {
+      totalTrades: 0,
+      totalVolume: 0,
+      buys: { count: 0, volume: 0 },
+      sells: { count: 0, volume: 0 }
+    };
+    let chartData = [];
+    
+    // Extract name from the main title (h1 element)
+    const titleElement = $('h1').first();
+    if (titleElement.length) {
+      name = titleElement.text().trim();
+      console.log(`📝 Found token name: ${name}`);
+    }
+    
+    // Extract symbol from the badge element
+    const symbolBadge = $('span[data-slot="badge"]').first();
+    if (symbolBadge.length) {
+      const symbolText = symbolBadge.text().trim();
+      // Remove the $ prefix if present
+      symbol = symbolText.replace(/^\$/, '');
+      console.log(`🏷️ Found token symbol: ${symbol}`);
+    }
+    
+    // Extract price from the current price section more precisely
+    $('*').each((index, element) => {
+      const text = $(element).text().trim();
+      
+      // Look specifically for "Current Price" section
+      if (text.includes('Current Price') && !price) {
+        // Find the price value in the same container
+        const container = $(element).closest('div');
+        const priceElement = container.find('*').filter((i, el) => {
+          const txt = $(el).text().trim();
+          // Look for price format like $0.001750 (not $1.7M or $136.7K)
+          return txt.match(/^\$0\.[0-9]+$/) || txt.match(/^\$[0-9]+\.[0-9]{6,}$/);
+        }).first();
+        
+        if (priceElement.length) {
+          const priceText = priceElement.text().trim();
+          const priceMatch = priceText.match(/\$([0-9]+\.?[0-9]*)/);
+          if (priceMatch) {
+            price = parseFloat(priceMatch[1]);
+            console.log(`💰 Found current price: $${price}`);
+          }
+        }
+      }
+    });
+    
+    // If we still haven't found the price, look for it in the price chart section
+    if (!price) {
+      $('*').each((index, element) => {
+        const text = $(element).text().trim();
+        
+        // Look for price in price chart or token info sections
+        if ((text.includes('$0.') || text.includes('$1.') || text.includes('$2.')) && text.length < 15) {
+          // Make sure it's not a market cap or volume (those have K, M, B suffixes)
+          if (!text.includes('K') && !text.includes('M') && !text.includes('B')) {
+            const priceMatch = text.match(/\$([0-9]+\.?[0-9]*)/);
+            if (priceMatch && !price) {
+              const extractedPrice = parseFloat(priceMatch[1]);
+              // Only accept prices that look reasonable (not 1.0 exactly which might be hardcoded)
+              if (extractedPrice !== 1.0 && extractedPrice < 10) {
+                price = extractedPrice;
+                console.log(`💰 Found price from chart: $${price}`);
+              }
+            }
+          }
+        }
+      });
+    }
+    
+    // Extract market cap from cards
+    $('*').each((index, element) => {
+      const text = $(element).text().trim();
+      if (text.includes('Market Cap') && !marketCap) {
+        // Look for the value in the same card
+        const card = $(element).closest('[data-slot="card"]');
+        const valueText = card.find('*').filter((i, el) => {
+          const txt = $(el).text().trim();
+          return txt.match(/^\$[0-9.]+[KMB]?$/);
+        }).first().text().trim();
+        
+        if (valueText) {
+          marketCap = parseValue(valueText.replace('$', ''));
+          console.log(`📊 Found market cap: $${marketCap.toLocaleString()}`);
+        }
+      }
+    });
+    
+    // Extract 24h volume from cards
+    $('*').each((index, element) => {
+      const text = $(element).text().trim();
+      if (text.includes('24h Volume') && !volume24h) {
+        // Look for the value in the same card
+        const card = $(element).closest('[data-slot="card"]');
+        const valueText = card.find('*').filter((i, el) => {
+          const txt = $(el).text().trim();
+          return txt.match(/^\$[0-9.]+[KMB]?$/);
+        }).first().text().trim();
+        
+        if (valueText) {
+          volume24h = parseValue(valueText.replace('$', ''));
+          console.log(`📈 Found 24h volume: $${volume24h.toLocaleString()}`);
+        }
+      }
+    });
+    
+    // Extract liquidity from cards
+    $('*').each((index, element) => {
+      const text = $(element).text().trim();
+      if (text.includes('Liquidity') && !liquidity) {
+        // Look for the value in the same card
+        const card = $(element).closest('[data-slot="card"]');
+        const valueText = card.find('*').filter((i, el) => {
+          const txt = $(el).text().trim();
+          return txt.match(/^\$[0-9.]+[KMB]?$/);
+        }).first().text().trim();
+        
+        if (valueText) {
+          liquidity = parseValue(valueText.replace('$', ''));
+          console.log(`💧 Found liquidity: $${liquidity.toLocaleString()}`);
+        }
+      }
+    });
+    
+    // Extract rank from badge elements
+    $('*').each((index, element) => {
+      const text = $(element).text().trim();
+      if (text.includes('Rank #') && !rank) {
+        const rankMatch = text.match(/Rank #([0-9]+)/);
+        if (rankMatch) {
+          rank = parseInt(rankMatch[1]);
+          console.log(`🏆 Found rank: #${rank}`);
+        }
+      }
+    });
+    
+    // Extract 24h change from timeframe momentum section
+    $('*').each((index, element) => {
+      const text = $(element).text().trim();
+      if (text === '24h' && !change24h) {
+        // Look for the percentage in the next sibling or parent
+        const parent = $(element).parent();
+        const changeText = parent.find('*').filter((i, el) => {
+          const txt = $(el).text().trim();
+          return txt.match(/[+-]?[0-9.]+%/);
+        }).first().text().trim();
+        
+        if (changeText) {
+          const changeMatch = changeText.match(/([+-]?[0-9.]+)%/);
+          if (changeMatch) {
+            change24h = parseFloat(changeMatch[1]);
+            console.log(`📊 Found 24h change: ${change24h}%`);
+          }
+        }
+      }
+    });
+    
+    // Extract holders count from token details
+    $('*').each((index, element) => {
+      const text = $(element).text().trim();
+      if (text.includes('Holders') && !holders) {
+        // Look for the value in the same section
+        const parent = $(element).parent();
+        const holdersText = parent.find('*').filter((i, el) => {
+          const txt = $(el).text().trim();
+          return txt.match(/^[0-9.]+[KMB]?$/);
+        }).first().text().trim();
+        
+        if (holdersText) {
+          holders = parseValue(holdersText);
+          console.log(`👥 Found holders: ${holders.toLocaleString()}`);
+        }
+      }
+    });
+    
+    // Extract Total Supply and Circulating Supply
+    $('*').each((index, element) => {
+      const text = $(element).text().trim();
+      
+      if (text.includes('Total Supply') && !totalSupply) {
+        const parent = $(element).parent();
+        const supplyText = parent.find('*').filter((i, el) => {
+          const txt = $(el).text().trim();
+          return txt.match(/^[0-9.]+[KMB]?$/);
+        }).first().text().trim();
+        
+        if (supplyText) {
+          totalSupply = parseValue(supplyText);
+          console.log(`📦 Found total supply: ${totalSupply.toLocaleString()}`);
+        }
+      }
+      
+      if (text.includes('Circulating Supply') && !circulatingSupply) {
+        const parent = $(element).parent();
+        const circSupplyText = parent.find('*').filter((i, el) => {
+          const txt = $(el).text().trim();
+          return txt.match(/^[0-9.]+[KMB]?$/);
+        }).first().text().trim();
+        
+        if (circSupplyText) {
+          circulatingSupply = parseValue(circSupplyText);
+          console.log(`🔄 Found circulating supply: ${circulatingSupply.toLocaleString()}`);
+        }
+      }
+    });
+    
+    // Extract 24h Trading Activity
+    $('*').each((index, element) => {
+      const text = $(element).text().trim();
+      
+      if (text.includes('24h Trading Activity')) {
+        const section = $(element).closest('div');
+        
+        // Look for Total Trades
+        section.find('*').each((i, el) => {
+          const txt = $(el).text().trim();
+          if (txt.includes('Total Trades') && !tradingActivity24h.totalTrades) {
+            const tradesMatch = txt.match(/([0-9.]+[KMB]?)/);
+            if (tradesMatch) {
+              tradingActivity24h.totalTrades = parseValue(tradesMatch[1]);
+              console.log(`📊 Found 24h total trades: ${tradingActivity24h.totalTrades.toLocaleString()}`);
+            }
+          }
+          
+          if (txt.includes('Unique Wallets') && !tradingActivity24h.uniqueWallets) {
+            const walletsMatch = txt.match(/([0-9.]+[KMB]?)/);
+            if (walletsMatch) {
+              tradingActivity24h.uniqueWallets = parseValue(walletsMatch[1]);
+              console.log(`👛 Found 24h unique wallets: ${tradingActivity24h.uniqueWallets.toLocaleString()}`);
+            }
+          }
+          
+          if (txt.includes('BUYS:') && !tradingActivity24h.buys.count) {
+            const buysMatch = txt.match(/BUYS: ([0-9.]+[KMB]?)/);
+            const volumeMatch = txt.match(/\$([0-9.]+[KMB]?)/);
+            if (buysMatch) {
+              tradingActivity24h.buys.count = parseValue(buysMatch[1]);
+              console.log(`💚 Found 24h buys: ${tradingActivity24h.buys.count.toLocaleString()}`);
+            }
+            if (volumeMatch) {
+              tradingActivity24h.buys.volume = parseValue(volumeMatch[1]);
+              console.log(`💚 Found 24h buy volume: $${tradingActivity24h.buys.volume.toLocaleString()}`);
+            }
+          }
+          
+          if (txt.includes('SELLS:') && !tradingActivity24h.sells.count) {
+            const sellsMatch = txt.match(/SELLS: ([0-9.]+[KMB]?)/);
+            const volumeMatch = txt.match(/\$([0-9.]+[KMB]?)/);
+            if (sellsMatch) {
+              tradingActivity24h.sells.count = parseValue(sellsMatch[1]);
+              console.log(`❤️ Found 24h sells: ${tradingActivity24h.sells.count.toLocaleString()}`);
+            }
+            if (volumeMatch) {
+              tradingActivity24h.sells.volume = parseValue(volumeMatch[1]);
+              console.log(`❤️ Found 24h sell volume: $${tradingActivity24h.sells.volume.toLocaleString()}`);
+            }
+          }
+        });
+      }
+    });
+    
+    // Extract All-Time Trading Activity
+    $('*').each((index, element) => {
+      const text = $(element).text().trim();
+      
+      if (text.includes('All-Time Trading Activity')) {
+        const section = $(element).closest('div');
+        
+        section.find('*').each((i, el) => {
+          const txt = $(el).text().trim();
+          
+          if (txt.includes('Total Trades') && !allTimeTradingActivity.totalTrades) {
+            const tradesMatch = txt.match(/([0-9.]+[KMB]?)/);
+            if (tradesMatch) {
+              allTimeTradingActivity.totalTrades = parseValue(tradesMatch[1]);
+              console.log(`📈 Found all-time total trades: ${allTimeTradingActivity.totalTrades.toLocaleString()}`);
+            }
+          }
+          
+          if (txt.includes('Total Volume') && !allTimeTradingActivity.totalVolume) {
+            const volumeMatch = txt.match(/\$([0-9.]+[KMB]?)/);
+            if (volumeMatch) {
+              allTimeTradingActivity.totalVolume = parseValue(volumeMatch[1]);
+              console.log(`💰 Found all-time total volume: $${allTimeTradingActivity.totalVolume.toLocaleString()}`);
+            }
+          }
+          
+          if (txt.includes('BUYS:') && !allTimeTradingActivity.buys.count) {
+            const buysMatch = txt.match(/BUYS: ([0-9.]+[KMB]?)/);
+            const volumeMatch = txt.match(/\$([0-9.]+[KMB]?)/);
+            if (buysMatch) {
+              allTimeTradingActivity.buys.count = parseValue(buysMatch[1]);
+              console.log(`💚 Found all-time buys: ${allTimeTradingActivity.buys.count.toLocaleString()}`);
+            }
+            if (volumeMatch) {
+              allTimeTradingActivity.buys.volume = parseValue(volumeMatch[1]);
+              console.log(`💚 Found all-time buy volume: $${allTimeTradingActivity.buys.volume.toLocaleString()}`);
+            }
+          }
+          
+          if (txt.includes('SELLS:') && !allTimeTradingActivity.sells.count) {
+            const sellsMatch = txt.match(/SELLS: ([0-9.]+[KMB]?)/);
+            const volumeMatch = txt.match(/\$([0-9.]+[KMB]?)/);
+            if (sellsMatch) {
+              allTimeTradingActivity.sells.count = parseValue(sellsMatch[1]);
+              console.log(`❤️ Found all-time sells: ${allTimeTradingActivity.sells.count.toLocaleString()}`);
+            }
+            if (volumeMatch) {
+              allTimeTradingActivity.sells.volume = parseValue(volumeMatch[1]);
+              console.log(`❤️ Found all-time sell volume: $${allTimeTradingActivity.sells.volume.toLocaleString()}`);
+            }
+          }
+        });
+      }
+    });
+    
+    // Extract Top Token Holders
+    $('*').each((index, element) => {
+      const text = $(element).text().trim();
+      
+      if (text.includes('Top Token Holders')) {
+        const section = $(element).closest('div');
+        
+        // Look for holder rows (usually in a table or list format)
+        section.find('tr, div').each((i, el) => {
+          const $el = $(el);
+          const rowText = $el.text().trim();
+          
+          // Look for wallet addresses (typically long alphanumeric strings)
+          const addressMatch = rowText.match(/([A-Za-z0-9]{32,})/);
+          const percentMatch = rowText.match(/([0-9.]+)%/);
+          const amountMatch = rowText.match(/([0-9.]+[KMB]?)/);
+          
+          if (addressMatch && percentMatch && topHolders.length < 10) {
+            topHolders.push({
+              address: addressMatch[1],
+              percentage: parseFloat(percentMatch[1]),
+              amount: amountMatch ? parseValue(amountMatch[1]) : 0,
+              rank: topHolders.length + 1
+            });
+          }
+        });
+        
+        if (topHolders.length > 0) {
+          console.log(`👥 Found ${topHolders.length} top holders`);
+        }
+      }
+    });
+    
+    // Extract Chart Data (price points over time)
+    // Look for chart data in script tags or data attributes
+    $('script').each((index, element) => {
+      const scriptContent = $(element).html();
+      if (scriptContent && scriptContent.includes('chart') && scriptContent.includes('price')) {
+        // Try to extract price data points
+        const priceMatches = scriptContent.match(/price[\"']?:\s*([0-9.]+)/g);
+        const timeMatches = scriptContent.match(/time[\"']?:\s*([0-9]+)/g);
+        
+        if (priceMatches && timeMatches && priceMatches.length === timeMatches.length) {
+          for (let i = 0; i < Math.min(priceMatches.length, 100); i++) {
+            const priceMatch = priceMatches[i].match(/([0-9.]+)/);
+            const timeMatch = timeMatches[i].match(/([0-9]+)/);
+            
+            if (priceMatch && timeMatch) {
+              chartData.push({
+                timestamp: parseInt(timeMatch[1]),
+                price: parseFloat(priceMatch[1]),
+                volume: 0 // Will be extracted separately if available
+              });
+            }
+          }
+        }
+      }
+    });
+    
+    if (chartData.length > 0) {
+      console.log(`📈 Found ${chartData.length} chart data points`);
+    }
+    
+    // If we couldn't extract some data, use reasonable defaults based on what we found
+    if (!symbol && name) {
+      // Try to extract symbol from name
+      const symbolMatch = name.match(/^([A-Z0-9]+)/);
+      symbol = symbolMatch ? symbolMatch[1] : tokenId.slice(0, 8).toUpperCase();
+    }
+    if (!name && symbol) name = symbol;
+    
+    // Only proceed if we have minimum required data
+    if (!symbol || !name || !price) {
+      console.log(`⚠️ Insufficient data for token ${tokenId}: symbol=${symbol}, name=${name}, price=${price}`);
+      return null;
+    }
+    
+    // Use real data only, no estimates
+    const tokenData = {
+      id: tokenId,
+      address: tokenId,
+      contractAddress: tokenId,
+      symbol: symbol,
+      name: name,
+      price: price,
+      marketCap: marketCap,
+      volume24h: volume24h,
+      change24h: change24h,
+      change30m: 0, // Only use real data if available
+      liquidity: liquidity,
+      trades24h: tradingActivity24h.totalTrades,
+      transactions24h: 0, // Only use real data if available
+      holders: holders,
+      age: age,
+      rank: rank,
+      createdAt: Date.now(),
+      open: price && change24h ? price * (1 - change24h / 100) : price,
+      high: price,
+      low: price,
+      close: price,
+      
+      // New detailed data
+      totalSupply: totalSupply,
+      circulatingSupply: circulatingSupply,
+      topHolders: topHolders,
+      tradingActivity24h: tradingActivity24h,
+      allTimeTradingActivity: allTimeTradingActivity,
+      chartData: chartData
+    };
+    
+    console.log(`✅ Successfully scraped token detail: ${symbol} (${name}) - $${price}`);
+    console.log(`   Market Cap: $${marketCap.toLocaleString()}, Volume: $${volume24h.toLocaleString()}, Liquidity: $${liquidity.toLocaleString()}`);
+    console.log(`   Supply: ${totalSupply.toLocaleString()}, Holders: ${holders.toLocaleString()}, 24h Trades: ${tradingActivity24h.totalTrades.toLocaleString()}`);
+    
+    return tokenData;
+    
+  } catch (error) {
+    console.error(`❌ Error fetching token detail for ${tokenId}:`, error.message);
+    return null;
   }
 };
 
@@ -482,7 +862,13 @@ const fetchTokenData = async (tokenId) => {
   try {
     console.log(`🚀 Fetching individual token data for: ${tokenId}`);
     
-    // First try to get from our scraped tokens
+    // First try to get detailed data from the token detail page
+    const detailPageData = await fetchTokenDetailPage(tokenId);
+    if (detailPageData) {
+      return detailPageData;
+    }
+    
+    // Fallback: try to get from our scraped tokens list
     const allTokens = await scrapeAllTokens();
     const token = allTokens.find(t => 
       t.id === tokenId || 
@@ -496,7 +882,7 @@ const fetchTokenData = async (tokenId) => {
       return token;
     }
     
-    console.log(`⚠️ Token not found in scraped data: ${tokenId}`);
+    console.log(`⚠️ Token not found: ${tokenId}`);
     return null;
   } catch (error) {
     console.error(`❌ Error fetching token data for ${tokenId}:`, error.message);
