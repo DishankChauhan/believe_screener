@@ -92,7 +92,7 @@ const PortfolioScreen: React.FC = () => {
   }, []);
 
   const handleTokenPress = useCallback((token: Token) => {
-    navigation.navigate('TokenDetail', { tokenId: token.id });
+    navigation.navigate('TokenDetail', { tokenId: token.address });
   }, [navigation]);
 
   const handleFavoritePress = useCallback((tokenId: string) => {

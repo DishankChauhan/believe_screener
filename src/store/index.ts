@@ -2,8 +2,9 @@ import { configureStore } from '@reduxjs/toolkit';
 import { useDispatch, useSelector, TypedUseSelectorHook } from 'react-redux';
 import { setupListeners } from '@reduxjs/toolkit/query';
 
-// Import API slice
+// Import API slices
 import { apiSlice } from '../store/api/apiSlice';
+import { believeScreenerApi } from '../store/api/believeScreenerApi';
 
 // Import feature slices
 import tokensReducer from '../store/slices/tokensSlice';
@@ -14,8 +15,9 @@ import settingsReducer from '../store/slices/settingsSlice';
 
 export const store = configureStore({
   reducer: {
-    // API slice
+    // API slices
     [apiSlice.reducerPath]: apiSlice.reducer,
+    [believeScreenerApi.reducerPath]: believeScreenerApi.reducer,
     
     // Feature slices
     tokens: tokensReducer,
@@ -32,9 +34,15 @@ export const store = configureStore({
           'api/executeQuery/pending',
           'api/executeQuery/fulfilled',
           'api/executeQuery/rejected',
+          // Ignore Believe Screener API actions
+          'believeScreenerApi/executeQuery/pending',
+          'believeScreenerApi/executeQuery/fulfilled',
+          'believeScreenerApi/executeQuery/rejected',
         ],
       },
-    }).concat(apiSlice.middleware),
+    })
+    .concat(apiSlice.middleware)
+    .concat(believeScreenerApi.middleware),
   devTools: __DEV__,
 });
 

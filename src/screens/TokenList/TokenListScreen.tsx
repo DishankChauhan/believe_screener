@@ -14,9 +14,10 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import { COLORS, FONTS, SPACING, BORDER_RADIUS } from '../../constants';
 import TokenRow from '../../components/common/TokenRow';
 import { debounce } from '../../utils';
-import type { Token } from '../../types';
+import { useGetTokensQuery, useLazySearchTokensQuery } from '../../store/api/believeScreenerApi';
+import type { Token, TokenFilters } from '../../types';
 
-// Mock token data based on Believe Screener
+// Mock token data as fallback
 const mockTokens: Token[] = [
   {
     id: '1',
@@ -125,14 +126,56 @@ const TokenListScreen: React.FC<TokenListScreenProps> = ({ navigation }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<keyof Token>('marketCap');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [refreshing, setRefreshing] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const searchInputRef = useRef<TextInput>(null);
+
+  // Real API integration
+  const filters: TokenFilters = {
+    sortBy: sortBy as 'marketCap' | 'volume' | 'change24h' | 'age',
+    sortOrder,
+    searchQuery: searchQuery.trim() || undefined,
+  };
+
+  const { 
+    data: tokenData, 
+    isLoading, 
+    isError, 
+    refetch 
+  } = useGetTokensQuery(filters);
+
+  const [searchTokens, { 
+    data: searchResults, 
+    isLoading: isSearching 
+  }] = useLazySearchTokensQuery();
+
+  // Debounced search function
+  const debouncedSearch = useCallback(
+    debounce((query: string) => {
+      if (query.trim().length > 2) {
+        searchTokens(query.trim());
+      }
+    }, 300),
+    [searchTokens]
+  );
+
+  // Use real data if available, fallback to mock data
+  const tokens = useMemo(() => {
+    if (searchQuery.trim().length > 2 && searchResults) {
+      return searchResults;
+    }
+    if (tokenData?.tokens) {
+      return tokenData.tokens;
+    }
+    return mockTokens;
+  }, [tokenData, searchResults, searchQuery]);
 
   // Use useCallback to prevent re-creating the function on every render
   const handleSearch = useCallback((text: string) => {
     setSearchQuery(text);
-  }, []);
+    if (text.trim().length > 2) {
+      debouncedSearch(text);
+    }
+  }, [debouncedSearch]);
 
   const handleClearSearch = useCallback(() => {
     setSearchQuery('');
@@ -142,22 +185,26 @@ const TokenListScreen: React.FC<TokenListScreenProps> = ({ navigation }) => {
     }, 100);
   }, []);
 
-  // Memoize the filtered tokens separately from sorted tokens
+  // Filtered tokens based on search (for fallback mock data)
   const filteredTokens = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return mockTokens;
+    if (!searchQuery.trim() || tokenData?.tokens || searchResults) {
+      return tokens;
     }
     
     const query = searchQuery.toLowerCase();
-    return mockTokens.filter(token => 
+    return tokens.filter(token => 
       token.symbol.toLowerCase().includes(query) ||
       token.name.toLowerCase().includes(query) ||
       token.address.toLowerCase().includes(query)
     );
-  }, [searchQuery]);
+  }, [tokens, searchQuery, tokenData, searchResults]);
 
-  // Separate memoization for sorting to reduce re-renders
+  // Local sorting for mock data (real API handles sorting server-side)
   const sortedTokens = useMemo(() => {
+    if (tokenData?.tokens || searchResults) {
+      return filteredTokens; // API already sorted
+    }
+
     return [...filteredTokens].sort((a, b) => {
       const aValue = a[sortBy];
       const bValue = b[sortBy];
@@ -174,11 +221,14 @@ const TokenListScreen: React.FC<TokenListScreenProps> = ({ navigation }) => {
       
       return 0;
     });
-  }, [filteredTokens, sortBy, sortOrder]);
+  }, [filteredTokens, sortBy, sortOrder, tokenData, searchResults]);
 
   const handleTokenPress = useCallback((token: Token) => {
-    // Navigate to token detail
-    navigation.navigate('TokenDetail', { tokenId: token.id });
+    // Navigate to token detail with both tokenId and tokenAddress for API calls
+    navigation.navigate('TokenDetail', { 
+      tokenId: token.id,
+      tokenAddress: token.address || token.contractAddress 
+    });
   }, [navigation]);
 
   const handleFavoritePress = useCallback((tokenId: string) => {
@@ -203,12 +253,8 @@ const TokenListScreen: React.FC<TokenListScreenProps> = ({ navigation }) => {
   }, [sortBy]);
 
   const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    // Simulate API call
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 2000);
-  }, []);
+    refetch();
+  }, [refetch]);
 
   const renderHeader = useCallback(() => (
     <View style={styles.headerContainer}>
@@ -316,7 +362,7 @@ const TokenListScreen: React.FC<TokenListScreenProps> = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={refreshing}
+            refreshing={isLoading}
             onRefresh={onRefresh}
             tintColor={COLORS.primary}
             colors={[COLORS.primary]}

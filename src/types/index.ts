@@ -16,6 +16,11 @@ export interface Token {
   contractAddress: string;
   address: string;
   createdAt: number;
+  // OHLC data
+  open?: number;
+  high?: number;
+  low?: number;
+  close?: number;
 }
 
 // Portfolio related types
@@ -113,13 +118,12 @@ export interface TopHolder {
 // Navigation types
 export type RootStackParamList = {
   Main: undefined;
-  TokenDetail: { tokenId: string };
+  TokenDetail: { tokenId: string; tokenAddress?: string };
   Portfolio: { address?: string };
 };
 
 export type BottomTabParamList = {
   Dashboard: undefined;
-  Tokens: undefined;
   Favorites: undefined;
   Portfolio: undefined;
 };

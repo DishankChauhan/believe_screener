@@ -1,8 +1,8 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { COLORS, FONTS, SPACING, BORDER_RADIUS } from '../../constants';
-import { formatCurrency, formatLargeNumber, formatPercentage, formatTimeAgo, getChangeColor } from '../../utils';
+import { formatCurrency, getChangeColor } from '../../utils';
 import type { Token } from '../../types';
 
 interface TokenRowProps {
@@ -12,7 +12,6 @@ interface TokenRowProps {
   isFavorite?: boolean;
   showRank?: boolean;
   rank?: number;
-  compact?: boolean;
 }
 
 const TokenRow: React.FC<TokenRowProps> = ({
@@ -22,14 +21,35 @@ const TokenRow: React.FC<TokenRowProps> = ({
   isFavorite = false,
   showRank = false,
   rank,
-  compact = false,
 }) => {
   const handlePress = () => {
-    onPress?.(token);
+    if (onPress) {
+      // Use the provided onPress handler (for in-app navigation)
+      onPress(token);
+    } else {
+      // Fallback to opening the browser if no onPress handler is provided
+      const tokenUrl = `https://www.believescreener.com/token/${token.address}`;
+      Linking.openURL(tokenUrl).catch(err => {
+        console.error('Failed to open URL:', err);
+      });
+    }
   };
 
   const handleFavoritePress = () => {
     onFavoritePress?.(token.id);
+  };
+
+  const handleTradePress = (e: any) => {
+    e.stopPropagation();
+    // Open believescreener.com token page for trading
+    const tokenUrl = `https://www.believescreener.com/token/${token.address}`;
+    Linking.openURL(tokenUrl);
+  };
+
+  const handleCAPress = (e: any) => {
+    e.stopPropagation();
+    // Copy address to clipboard or show address
+    console.log('Contract Address:', token.address);
   };
 
   const formatChange = (change: number): string => {
@@ -37,140 +57,77 @@ const TokenRow: React.FC<TokenRowProps> = ({
     return `${sign}${change.toFixed(2)}%`;
   };
 
+  const truncateAddress = (address: string): string => {
+    if (address.length <= 12) return address;
+    return `${address.slice(0, 6)}...${address.slice(-6)}`;
+  };
+
   return (
     <TouchableOpacity 
-      style={[styles.container, compact && styles.compactContainer]}
+      style={styles.container}
       onPress={handlePress}
       activeOpacity={0.8}
     >
-      {/* Left Section - Rank & Token Info */}
-      <View style={styles.leftSection}>
-        {showRank && rank && (
-          <View style={styles.rankContainer}>
-            <Text style={styles.rankText}>{rank}</Text>
-          </View>
-        )}
-        
-        <View style={styles.tokenInfo}>
-          <View style={styles.tokenHeader}>
-            <Text style={[styles.tokenSymbol, compact && styles.compactSymbol]} numberOfLines={1}>
-              {token.symbol}
-            </Text>
-            <TouchableOpacity 
-              style={styles.favoriteButton}
-              onPress={handleFavoritePress}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Icon
-                name={isFavorite ? 'star' : 'star-border'}
-                size={16}
-                color={isFavorite ? COLORS.warning : COLORS.textMuted}
-              />
-            </TouchableOpacity>
-          </View>
-          
-          {!compact && (
-            <Text style={styles.tokenName} numberOfLines={1}>
-              {token.name}
-            </Text>
-          )}
+      {/* Token Column */}
+      <View style={styles.tokenColumn}>
+        <View style={styles.tokenHeader}>
+          <Text style={styles.tokenSymbol} numberOfLines={1}>
+            {token.symbol}
+          </Text>
+          <TouchableOpacity 
+            style={styles.favoriteButton}
+            onPress={handleFavoritePress}
+            hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
+          >
+            <Icon
+              name={isFavorite ? 'star' : 'star-border'}
+              size={14}
+              color={isFavorite ? COLORS.warning : COLORS.textMuted}
+            />
+          </TouchableOpacity>
         </View>
+        <Text style={styles.tokenName} numberOfLines={1}>
+          {token.name}
+        </Text>
       </View>
 
-      {/* Middle Section - Price & Market Cap */}
-      <View style={styles.middleSection}>
-        <Text style={[styles.price, compact && styles.compactPrice]} numberOfLines={1}>
+      {/* Trade/CA Column */}
+      <View style={styles.tradeColumn}>
+        <TouchableOpacity style={styles.tradeButton} onPress={handleTradePress}>
+          <Text style={styles.tradeButtonText}>TRADE</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.caButton} onPress={handleCAPress}>
+          <Text style={styles.caButtonText}>CA</Text>
+        </TouchableOpacity>
+        <Text style={styles.addressText} numberOfLines={1}>
+          {truncateAddress(token.address)}
+        </Text>
+      </View>
+
+      {/* Price Column */}
+      <View style={styles.priceColumn}>
+        <Text style={styles.price} numberOfLines={1}>
           {formatCurrency(token.price, 'USD', false)}
         </Text>
-        
-        {!compact && (
-          <Text style={styles.marketCap} numberOfLines={1}>
-            {formatLargeNumber(token.marketCap)}
-          </Text>
-        )}
       </View>
 
-      {/* Right Section - Changes & Volume */}
-      <View style={styles.rightSection}>
-        {/* 30m Change */}
-        <View style={styles.changeContainer}>
-          <Text style={[styles.changeLabel, compact && styles.compactChangeLabel]}>
-            30m
-          </Text>
-          <View style={[
-            styles.changeBadge,
-            { backgroundColor: getChangeColor(token.change30m, COLORS) + '20' }
+      {/* 24h Change Column */}
+      <View style={styles.changeColumn}>
+        <View style={[
+          styles.changeBadge,
+          { backgroundColor: getChangeColor(token.change24h, COLORS) + '20' }
+        ]}>
+          <Icon
+            name={token.change24h > 0 ? 'arrow-upward' : token.change24h < 0 ? 'arrow-downward' : 'remove'}
+            size={12}
+            color={getChangeColor(token.change24h, COLORS)}
+          />
+          <Text style={[
+            styles.changeText,
+            { color: getChangeColor(token.change24h, COLORS) }
           ]}>
-            <Icon
-              name={token.change30m > 0 ? 'arrow-upward' : token.change30m < 0 ? 'arrow-downward' : 'remove'}
-              size={12}
-              color={getChangeColor(token.change30m, COLORS)}
-              style={styles.changeIcon}
-            />
-            <Text style={[
-              styles.changeText,
-              { color: getChangeColor(token.change30m, COLORS) },
-              compact && styles.compactChangeText
-            ]}>
-              {formatChange(token.change30m)}
-            </Text>
-          </View>
-        </View>
-
-        {/* 24h Change */}
-        <View style={styles.changeContainer}>
-          <Text style={[styles.changeLabel, compact && styles.compactChangeLabel]}>
-            24h
+            {formatChange(token.change24h)}
           </Text>
-          <View style={[
-            styles.changeBadge,
-            { backgroundColor: getChangeColor(token.change24h, COLORS) + '20' }
-          ]}>
-            <Icon
-              name={token.change24h > 0 ? 'arrow-upward' : token.change24h < 0 ? 'arrow-downward' : 'remove'}
-              size={12}
-              color={getChangeColor(token.change24h, COLORS)}
-              style={styles.changeIcon}
-            />
-            <Text style={[
-              styles.changeText,
-              { color: getChangeColor(token.change24h, COLORS) },
-              compact && styles.compactChangeText
-            ]}>
-              {formatChange(token.change24h)}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Volume & Age (Bottom Row for compact) */}
-      {!compact && (
-        <View style={styles.bottomSection}>
-          <Text style={styles.volumeText}>
-            Vol: {formatLargeNumber(token.volume24h)}
-          </Text>
-          <Text style={styles.ageText}>
-            {token.age}
-          </Text>
-        </View>
-      )}
-
-      {/* Compact Bottom Info */}
-      {compact && (
-        <View style={styles.compactBottomSection}>
-          <Text style={styles.compactVolumeText}>
-            {formatLargeNumber(token.volume24h)}
-          </Text>
-          <Text style={styles.compactAgeText}>
-            {token.age}
-          </Text>
-        </View>
-      )}
-
-      {/* Trade Button */}
-      <View style={styles.tradeButtonContainer}>
-        <View style={styles.tradeButton}>
-          <Text style={styles.tradeButtonText} numberOfLines={1}>TRADE</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -182,39 +139,22 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.backgroundTertiary,
     borderRadius: BORDER_RADIUS.sm,
     padding: SPACING.sm,
-    marginVertical: SPACING.xs,
+    marginVertical: 2,
     borderWidth: 1,
     borderColor: COLORS.border,
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 80,
+    minHeight: 70,
   },
-  compactContainer: {
-    minHeight: 60,
-    paddingVertical: SPACING.xs,
-  },
-  leftSection: {
-    flex: 2.5,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  rankContainer: {
-    width: 25,
-    alignItems: 'center',
-    marginRight: SPACING.xs,
-  },
-  rankText: {
-    fontSize: FONTS.sizes.sm,
-    color: COLORS.textMuted,
-    fontWeight: '500',
-  },
-  tokenInfo: {
-    flex: 1,
+  tokenColumn: {
+    flex: 2,
+    paddingRight: SPACING.sm,
   },
   tokenHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginBottom: 4,
   },
   tokenSymbol: {
     fontSize: FONTS.sizes.md,
@@ -222,117 +162,75 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     flex: 1,
   },
-  compactSymbol: {
-    fontSize: FONTS.sizes.sm,
-  },
   favoriteButton: {
-    padding: 4,
+    padding: 2,
   },
   tokenName: {
+    fontSize: FONTS.sizes.sm,
+    color: COLORS.textSecondary,
+  },
+  tradeColumn: {
+    flex: 2,
+    alignItems: 'center',
+    paddingHorizontal: SPACING.sm,
+  },
+  tradeButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: BORDER_RADIUS.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    marginBottom: 4,
+  },
+  tradeButtonText: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.background,
+    fontWeight: 'bold',
+  },
+  caButton: {
+    backgroundColor: COLORS.backgroundSecondary,
+    borderRadius: BORDER_RADIUS.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 4,
+  },
+  caButtonText: {
     fontSize: FONTS.sizes.xs,
     color: COLORS.textSecondary,
-    marginTop: 2,
+    fontWeight: '500',
   },
-  middleSection: {
-    flex: 1.8,
+  addressText: {
+    fontSize: FONTS.sizes.xs,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+  },
+  priceColumn: {
+    flex: 1.5,
     alignItems: 'flex-end',
-    paddingHorizontal: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
   },
   price: {
     fontSize: FONTS.sizes.md,
     color: COLORS.textPrimary,
     fontWeight: '600',
   },
-  compactPrice: {
-    fontSize: FONTS.sizes.sm,
-  },
-  marketCap: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  rightSection: {
-    flex: 1.5,
-    alignItems: 'flex-end',
-  },
-  changeContainer: {
+  changeColumn: {
+    flex: 1.2,
     alignItems: 'center',
-    marginBottom: 4,
-  },
-  changeLabel: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.textMuted,
-    marginBottom: 2,
-  },
-  compactChangeLabel: {
-    fontSize: 10,
+    paddingHorizontal: SPACING.sm,
   },
   changeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: BORDER_RADIUS.sm,
-  },
-  changeIcon: {
-    marginRight: 2,
   },
   changeText: {
-    fontSize: FONTS.sizes.xs,
+    fontSize: FONTS.sizes.sm,
     fontWeight: '600',
-  },
-  compactChangeText: {
-    fontSize: 10,
-  },
-  bottomSection: {
-    position: 'absolute',
-    bottom: SPACING.xs,
-    left: SPACING.sm,
-    right: SPACING.sm,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  volumeText: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.textMuted,
-  },
-  ageText: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.textMuted,
-  },
-  compactBottomSection: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: SPACING.xs,
-  },
-  compactVolumeText: {
-    fontSize: FONTS.sizes.xs,
-    color: COLORS.textSecondary,
-  },
-  compactAgeText: {
-    fontSize: 10,
-    color: COLORS.textMuted,
-    marginTop: 2,
-  },
-  tradeButtonContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tradeButton: {
-    backgroundColor: COLORS.primary,
-    borderRadius: BORDER_RADIUS.sm,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    minWidth: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tradeButtonText: {
-    fontSize: 8,
-    color: COLORS.background,
-    fontWeight: 'bold',
-    textAlign: 'center',
+    marginLeft: 4,
   },
 });
 

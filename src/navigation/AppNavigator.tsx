@@ -10,7 +10,6 @@ import type { RootStackParamList, BottomTabParamList } from '../types';
 
 // Import screens
 import DashboardScreen from '../screens/Dashboard/DashboardScreen';
-import TokenListScreen from '../screens/TokenList/TokenListScreen';
 import TokenDetailScreen from '../screens/TokenDetail/TokenDetailScreen';
 import PortfolioScreen from '../screens/Portfolio/PortfolioScreen';
 import FavoritesScreen from '../screens/Favorites/FavoritesScreen';
@@ -55,9 +54,6 @@ const TabNavigator = () => {
             case 'Dashboard':
               iconName = 'home';
               break;
-            case 'Tokens':
-              iconName = 'list';
-              break;
             case 'Favorites':
               iconName = 'star';
               break;
@@ -87,11 +83,6 @@ const TabNavigator = () => {
         name="Dashboard" 
         component={DashboardScreen}
         options={{ tabBarLabel: 'Dashboard' }}
-      />
-      <Tab.Screen 
-        name="Tokens" 
-        component={TokenListScreen}
-        options={{ tabBarLabel: 'Tokens' }}
       />
       <Tab.Screen 
         name="Favorites" 
